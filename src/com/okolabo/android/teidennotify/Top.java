@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,12 +29,6 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.res.Configuration;
 import android.database.Cursor;
-import android.location.Address;
-import android.location.Geocoder;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.location.LocationProvider;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -60,12 +52,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
+import android.widget.TabHost.OnTabChangeListener;
 
 import com.okolabo.android.teidennotify.DatabaseHelper.Histories;
 import com.okolabo.android.teidennotify.DatabaseHelper.InputHistories;
 import com.okolabo.android.teidennotify.DatabaseHelper.LocationHistories;
 
-public class Top extends Activity implements LocationListener{
+public class Top extends Activity {
     
     // 現在地と地名検索で処理をわけるためのフラグ
     private static final int TEIDEN_LOCATION = 1;
@@ -90,18 +83,6 @@ public class Top extends Activity implements LocationListener{
     
     /** 停電スケジュールをjsonで取得できるWebAPIのURL */
     private static final String URL_SCHEDULE = "http://prayforjapanandroid.appspot.com/api/schedule";
-    
-    /** 位置情報を見るマネージャー */
-    protected LocationManager mLocationManager;
-    
-    /** 位置情報プロバイダ(GPS or Network) */
-    protected LocationProvider mLocationProvider;
-    
-    /** 現在地 */
-    protected Location mLocation;
-
-    /**  */
-    protected Geocoder mGeocoder;
     
     /** 都県のスピナー */
     private Spinner mSpnPref;
@@ -167,6 +148,10 @@ public class Top extends Activity implements LocationListener{
         "5-E"
     };
     
+    private ArrayList<String> mCurrentLocationGroups = null;
+    
+    private ArrayList<String> mSearchGroups = null;
+    
     static {
         TEIDEN_URL_LIST = new HashMap<String, String>();
         TEIDEN_URL_LIST.put("東京都", "http://mainichi.jp/select/weathernews/20110311/mai/keikakuteiden/tokyo.html");
@@ -185,8 +170,6 @@ public class Top extends Activity implements LocationListener{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         ExceptionBinder.bind(this, getString(R.string.android_exception_service_id));
-        mGeocoder = new Geocoder(getApplicationContext(), Locale.JAPAN);
-        mLocationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
         
         // グループと停電時間が日ごとに変わるので、日付を取得しとく
         // 今日の日付を保存
@@ -223,6 +206,27 @@ public class Top extends Activity implements LocationListener{
         spec.setContent(R.id.tab4);
         spec.setIndicator(getString(R.string.tab_group));
         mTabs.addTab(spec);
+        
+        mTabs.setOnTabChangedListener(new OnTabChangeListener() {
+            
+            public void onTabChanged(String tabId) {
+                if (tabId.equals("tag4")) {
+                    String defaultGroup= Prefs.getDefaultGroup(getApplicationContext());
+                    if (!defaultGroup.equals("")) {
+                        int position = 0;
+                        for (int i = 0; i < mSubGroups.length; i++) {
+                            if (mSubGroups[i].equals(defaultGroup)) {
+                                position = i;
+                                break;
+                            }
+                        }
+                        mSpnGroup.setSelection(position);
+                        new GroupScheduleAsyncTask(defaultGroup).execute();
+                    }
+                }
+            }
+        });
+        
         
         // 地域検索の都県のスピナー
         mSpnPref = (Spinner) findViewById(R.id.pref);
@@ -299,83 +303,12 @@ public class Top extends Activity implements LocationListener{
     @Override
     protected void onPause() {
         super.onPause();
-        // GPSのリスナーを解除
-        if (mLocationManager != null) {
-            mLocationManager.removeUpdates(this);
-        }
-        Button btnGetMyLocation = (Button) findViewById(R.id.btnGetMyLocation);
-        btnGetMyLocation.setEnabled(true);
-        btnGetMyLocation.setText(R.string.get_my_location);
-        ((TextView) findViewById(R.id.currentAddress)).setText("");
-        ((TextView) findViewById(R.id.groupNumber)).setText("");
-        ((TextView) findViewById(R.id.teidenSpan)).setText("");
     }
     
     @Override
     protected void onDestroy() {
         mDBHelper.close();
         super.onDestroy();
-    }
-
-    /**
-     * 使えるプロバイダーがない
-     */
-    private void noProviderEnabled() {
-        
-    }
-
-    
-    public void onProviderDisabled(String provider) {} // 今回は実装しない
-
-    public void onProviderEnabled(String provider) {} // 今回は実装しない
-
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-        switch (status) {
-            case LocationProvider.AVAILABLE:
-                break;
-                
-            case LocationProvider.OUT_OF_SERVICE:
-                // GPSサービスが利用できない
-                gpsOutOfService();
-                break;
-                
-            case LocationProvider.TEMPORARILY_UNAVAILABLE:
-                // GPSデータを取得できない
-                gpsTemporarilyUnavailable();
-                break;
-        }
-    }
-
-    /**
-     * 位置情報が取得できた
-     */
-    public void onLocationChanged(Location location) {
-        mLocation = location;
-        if (location != null) {
-            // これ以上電池を消費しても意味がないので消去
-            mLocationManager.removeUpdates(this);
-            gpsLocationChanged();
-        }
-    }
-
-    /**
-     * 位置情報が取得できたので処理を行う
-     */
-    private void gpsLocationChanged() {
-        // 位置情報を住所に変換
-        try {
-            List<Address> list_address = mGeocoder.getFromLocation(mLocation.getLatitude(), mLocation.getLongitude(), 10);
-            Address address = list_address.get(0);
-            StringBuilder builder = new StringBuilder();
-            String buf;
-            for (int i = 1; (buf = address.getAddressLine(i)) != null; i++) {
-                builder.append(buf);
-            }
-            // 以降、別メソッドにする
-            setCurrentLocationInfo(builder.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
     
     /**
@@ -431,69 +364,6 @@ public class Top extends Activity implements LocationListener{
         Toast.makeText(this, "GPSデータを取得できません", Toast.LENGTH_LONG).show();
     }
     
-    
-//    protected HashMap<String, ArrayList<Integer>> getTeidenInfo(String url) {
-//        // 住所がどのエリアであるか照合する
-//        Source source;
-//        HashMap<String, ArrayList<Integer>> areaMap = new HashMap<String, ArrayList<Integer>>();
-//        try {
-//            // 今は毎日新聞からデータ取ってる。ここをGAEに切り替える
-//            source = new Source(new URL(url));
-//            List<Element> elementList = source.getAllElementsByClass("NewsBody");
-////          List<Element> elementList=source.getAllElements();
-//            for (Element element : elementList) {
-//                String newsBody = element.toString();
-////                Log.d("TeidenApp", newsBody);
-//                String[] areas = newsBody.split("<br />|<br>");
-//                for (int i = 1; i < areas.length; i++) {
-//                    String[] area = areas[i].trim().split("　");
-//                    if (area.length > 1) {
-//                        String[] areaNames = area[0].split(" ");
-//                        StringBuilder areaNameBuilder = new StringBuilder();
-//                        for (String areaName: areaNames) {
-//                            areaNameBuilder.append(areaName);
-//                        }
-//                        String areaName = areaNameBuilder.toString();
-//                        // areaName から「大字」を除去する
-//                        areaName = areaName.replaceAll("大字", "");
-//                        // areaName から「の一部」を除去する
-//                        areaName = areaName.replaceAll("の一部", "");
-//                        ArrayList<Integer> groups;
-//                        if (areaMap.containsKey(areaName)) {
-//                            groups = areaMap.get(areaName);
-//                        } else {
-//                            groups = new ArrayList<Integer>();
-//                        }
-//                        area[1] = zenkakuToHankaku(area[1]);
-////                        Log.d("TeidenApp", area[1]);
-//                        String areaNum = null;
-//                        Pattern pattern = Pattern.compile("\\d");
-//                        Matcher matcher = pattern.matcher(area[1]);
-//                        if (matcher.find()) {
-//                            areaNum = matcher.group();
-//                        }
-////                        Log.d("TeidenApp", "areaNum = " + areaNum);
-//                        if (areaNum != null) {
-//                            // 念を押して、<br>を削除するようにした
-//                            areaNum = areaNum.replace("<br>", "");
-//                            areaNum = areaNum.replace("<br />", "");
-//                            int intAreaNum = Integer.valueOf(areaNum);
-//                            if (!groups.contains(intAreaNum)) {
-//                                groups.add(intAreaNum);
-//                                areaMap.put(areaName, groups);
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        } catch (MalformedURLException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//       return areaMap;
-//    }
-    
     /**
      * 非同期で検索する
      *
@@ -516,7 +386,7 @@ public class Top extends Activity implements LocationListener{
             if (mSchedule == null) {
                 try {
                     HashMap<String, String> map = new HashMap<String, String>();
-                    map.put("v", Version.SCHEDULE_2);
+                    map.put("v", Version.SCHEDULE_3);
                     response = RestfulClient.Get(URL_SCHEDULE, map);
                     mSchedule = new JSONObject(response);
                 } catch (ClientProtocolException e) {
@@ -588,6 +458,15 @@ public class Top extends Activity implements LocationListener{
                 if (matcher.find()) {
                     hit_flg = true;
                     ArrayList<String> groups = areaMap.get(areaName);
+                    switch (mMode) {
+                        case TEIDEN_LOCATION:
+                            mCurrentLocationGroups = groups;
+                            break;
+                            
+                        case TEIDEN_SEARCH:
+                            mSearchGroups = groups;
+                            break;
+                    }
                     StringBuilder groupBuilder = new StringBuilder();
                     StringBuilder teidenBuilder = new StringBuilder();
                     groupBuilder.append(areaName + "\n");
@@ -607,10 +486,19 @@ public class Top extends Activity implements LocationListener{
                             teidenBuilder.append(strDate + "\n");
                             for (String group : groups) {
                                 // 日付によってグループの停電時刻が変わるのに対応する！
-                                String teidenGroupSpan = schedules.getString(group);
+                                StringBuilder teidenGroupSpan = new StringBuilder();
+                                JSONArray teidens = schedules.getJSONArray(group);
+                                for (int i = 0; i < teidens.length(); i++) {
+                                    JSONObject teiden = teidens.getJSONObject(i);
+                                    teidenGroupSpan.append(teiden.getString("start"))
+                                        .append("～")
+                                        .append(teiden.getString("end"))
+                                        .append(teiden.getString("note"))
+                                        .append("\n");
+                                }
                                 // グループ名を前に記述
                                 teidenBuilder.append(getString(R.string.dai) + group + getString(R.string.group) + "\n");
-                                teidenBuilder.append(teidenGroupSpan + "\n");
+                                teidenBuilder.append(teidenGroupSpan.toString());
                             }
                             teidenBuilder.append("\n");
                         }
@@ -775,10 +663,19 @@ public class Top extends Activity implements LocationListener{
             case R.id.menu_support_app:
                 showSupportApp();
                 break;
+                
+            case R.id.menu_preferences:
+                showPreferences();
+                break;
         }
         return super.onOptionsItemSelected(item);
     }
     
+    private void showPreferences() {
+        Intent intent = new Intent(this, Preferences.class);
+        startActivity(intent);
+    }
+
     /**
      * このアプリについてを表示する
      */
@@ -853,32 +750,9 @@ public class Top extends Activity implements LocationListener{
      * @param v
      */
     public void getMyLocation(View v) {
-        // GPSのリスナーを登録
-        mLocationProvider = null;   // 一旦初期化
-        if (mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-            mLocationProvider = mLocationManager.getProvider(LocationManager.GPS_PROVIDER);
-        } else if(mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            mLocationProvider = mLocationManager.getProvider(LocationManager.NETWORK_PROVIDER);
-        } else {
-            // SIMなし、かつ、GPSがOFF
-            noProviderEnabled();
-        }
-        if (mLocationProvider != null) {
-            mLocationManager.requestLocationUpdates(
-                    mLocationProvider.getName(),
-                    0,
-                    0,
-                    this);
-            // 取得中に変更
-            Button btnGetMyLocation = (Button) findViewById(R.id.btnGetMyLocation);
-            btnGetMyLocation.setEnabled(false);
-            btnGetMyLocation.setText(R.string.now_location_loading);
-            ((TextView) findViewById(R.id.currentAddress)).setText(R.string.address_loading);
-            ((TextView) findViewById(R.id.groupNumber)).setText(R.string.address_loading);
-            ((TextView) findViewById(R.id.teidenSpan)).setText(R.string.address_loading);
-        }
-        // 現在地取得中を表示
-//        new LocationAsyncTask().execute();
+        Intent intent = new Intent(this, Place.class);
+        intent.putExtra("myLocationRequest", true);
+        startActivityForResult(intent, REQ_PLACE);
     }
     
     /**
@@ -1211,7 +1085,7 @@ public class Top extends Activity implements LocationListener{
             if (mSchedule == null) {
                 try {
                     HashMap<String, String> map = new HashMap<String, String>();
-                    map.put("v", Version.SCHEDULE_2);
+                    map.put("v", Version.SCHEDULE_3);
                     response = RestfulClient.Get(URL_SCHEDULE, map);
                     mSchedule = new JSONObject(response);
                 } catch (ClientProtocolException e) {
@@ -1241,8 +1115,17 @@ public class Top extends Activity implements LocationListener{
                     JSONObject schedules = date.getJSONObject(strDate);
                     builder.append(strDate + "\n");
                     // 日付によってグループの停電時刻が変わるのに対応する！
-                    String teidenGroupSpan = schedules.getString(mGroup);
-                    builder.append(teidenGroupSpan + "\n\n");
+                    StringBuilder teidenGroupSpan = new StringBuilder();
+                    JSONArray teidens = schedules.getJSONArray(mGroup);
+                    for (int i = 0; i < teidens.length(); i++) {
+                        JSONObject teiden = teidens.getJSONObject(i);
+                        teidenGroupSpan.append(teiden.getString("start"))
+                            .append("～")
+                            .append(teiden.getString("end"))
+                            .append(teiden.getString("note"))
+                            .append("\n");
+                    }
+                    builder.append(teidenGroupSpan.toString() + "\n");
                 }
             } catch (JSONException e) {
                 // date.getJSONArray(strDate)で例外が発生するが、無視する
@@ -1297,4 +1180,57 @@ public class Top extends Activity implements LocationListener{
         Intent intent = new Intent(this, Place.class);
         startActivityForResult(intent, REQ_PLACE);
     }
+    
+    /**
+     * カレンダーに計画停電のスケジュールを登録する
+     * @param v
+     */
+    public void writeSchedule(View v) {
+        String tag = mTabs.getCurrentTabTag();
+        if (mSchedule != null) {
+            Intent intent = new Intent(this, WriteSchedule.class);
+            if (tag.equals("tag1")) {
+                if (mCurrentLocationGroups != null) {
+                    intent.putStringArrayListExtra("groups", mCurrentLocationGroups);
+                    intent.putExtra("schedule", mSchedule.toString());
+                    startActivity(intent);
+                } else {
+                    // まだ検索結果が表示されていない
+                    Toast.makeText(this, R.string.please_search, Toast.LENGTH_SHORT).show();
+                }
+            } else if (tag.equals("tag2")) {
+                if (mSearchGroups != null) {
+                    intent.putStringArrayListExtra("groups", mSearchGroups);
+                    intent.putExtra("schedule", mSchedule.toString());
+                    startActivity(intent);
+                } else {
+                    // まだ検索結果が表示されていない
+                    Toast.makeText(this, R.string.please_search, Toast.LENGTH_SHORT).show();
+                }
+            } else if (tag.equals("tag4")) {
+                if (mSpnGroup.getSelectedItemPosition() > 0) {
+                    String subGroup = mSubGroups[mSpnGroup.getSelectedItemPosition()];
+                    ArrayList<String> groups = new ArrayList<String>();
+                    groups.add(subGroup);
+                    intent.putStringArrayListExtra("groups", groups);
+                    intent.putExtra("schedule", mSchedule.toString());
+                    startActivity(intent);
+                } else {
+                    // まだグループが選択されていない
+                    Toast.makeText(this, R.string.please_select_group, Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else {
+            if (tag.equals("tag1")) {
+                // まだ検索結果が表示されていない
+                Toast.makeText(this, R.string.please_search, Toast.LENGTH_SHORT).show();
+            } else if (tag.equals("tag2")) {
+                // まだ検索結果が表示されていない
+                Toast.makeText(this, R.string.please_search, Toast.LENGTH_SHORT).show();
+            } else if (tag.equals("tag4")) {
+                // まだグループが選択されていない
+                Toast.makeText(this, R.string.please_select_group, Toast.LENGTH_SHORT).show();
+            }
+        }
+   }
 }

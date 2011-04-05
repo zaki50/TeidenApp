@@ -9,6 +9,12 @@ public final class Prefs {
 
     /** 初回起動時の確認をしたかどうか */
     public static final String KEY_CONFIRM = "confirm";
+    /** 既定グループ設定 */
+    public static final String KEY_DEFAULT_GROUP = "default_group";
+    
+    /** 既定アラーム時刻 */
+    public static final String KEY_DEFAULT_ALARM_TIME = "default_alarm_time";
+    
     /** 広告を出してよいかどうか */
     public static final String KEY_CM = "cm";
 
@@ -32,5 +38,23 @@ public final class Prefs {
      */
     public static boolean getCmFlg(Context context) {
         return get(context).getBoolean(KEY_CM, false);
+    }
+    
+    /**
+     * 既定のグループを取得する
+     * @param context
+     * @return
+     */
+    public static String getDefaultGroup(Context context) {
+        return get(context).getString(KEY_DEFAULT_GROUP, "");
+    }
+    
+    /**
+     * 既定のアラーム時間を取得する
+     * @param context
+     * @return
+     */
+    public static String getDefaultAlarmTime(Context context) {
+        return get(context).getString(KEY_DEFAULT_ALARM_TIME, "10");
     }
 }

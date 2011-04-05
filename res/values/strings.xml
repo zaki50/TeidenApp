@@ -2,8 +2,7 @@
 <resources>
     <string name="app_name">計画停電情報</string>
     <string name="app_name_top">計画停電\n情報</string>
-    <string name="android_exception_service_id">pbTP05jKFN5FCNgqPc9I8F1SJhP7PDaEBLL88DIa
-    </string>
+    <string name="android_exception_service_id">pbTP05jKFN5FCNgqPc9I8F1SJhP7PDaEBLL88DIa</string>
     <string name="api_key_debug">0UEVtDJo7VHZLRr-UBvratoeFqc-fvcRYgrRaJA</string>
     <string name="api_key_release">0UEVtDJo7VHYiIoTi5ap__1opr3R-DgqTEGGifQ</string>
     <string name="current_address">現在地：</string>
@@ -13,7 +12,7 @@
     <string name="tab_group">グループ別</string>
     <string name="address_loading">データ取得中...</string>
     <string name="teiden_loading">停電情報を取得中...</string>
-    <string name="now_location_loading">...現在地を取得中...</string>
+    <string name="now_location_loading">現在地を取得中。時間がかかる場合があります。</string>
     <string name="data_loading">現在地が取れました。\nデータを取得中...</string>
     <string name="current_group">現在地のグループ：</string>
     <string name="dai">第</string>
@@ -33,8 +32,8 @@
     <string name="cm_app">この情報はAndroidアプリ「計画停電情報」より送信しています。\n
         https://market.android.com/details?id=com.okolabo.android.teidennotify
     </string>
-    <string name="caution_gps">取れない場合GPSをON、屋外でお試しください。多少時間はかかります。
-        取れなくなったらメニューのアプリについてから連絡お願いします。</string>
+    <string name="caution_gps">取れない場合GPSをON、屋外でお試しください。
+        取れなくなったらサポート掲示板にお願いします。</string>
     <string name="caution_search">検索候補表示に対応しました。\n停電エリアのみ候補に出ます。</string>
     <string name="about_app">アプリについて</string>
     <string name="get_my_location">現在地を取得</string>
@@ -42,7 +41,7 @@
     </string>
     <string name="month">月</string>
     <string name="day">日の予定</string>
-    <string name="show_history">検索履歴を表示・更新</string>
+    <string name="show_history">検索履歴を表示・再読込み</string>
     <string name="search_date">検索実施時刻：</string>
     <string name="delete_history">削除しました</string>
     <string name="caution_select_row">履歴をタップしてください</string>
@@ -58,7 +57,7 @@
     <string name="select_location_history">現在地の履歴を選択</string>
     <string name="menu_location_history">タップ > 検索／長押し > メニュー</string>
     <string name="zip_search">郵便番号検索</string>
-    <string name="hint_zipcode">郵便番号-なしで入力</string>
+    <string name="hint_zipcode">-なしで入力</string>
     <string name="no_zip_search_description">郵便番号検索アプリが見つかりませんでした。マーケットに移動してもよろしいですか？
     </string>
     <string name="move">移動する</string>
@@ -96,7 +95,7 @@
     <string name="menu_search">検索</string>
     <string name="menu_setting_place">場所決定</string>
     <string name="no_result_search_address">検索した地名が見つかりませんでした</string>
-    <string name="null_carrent_location">まだ位置情報の取得ができていません</string>
+    <string name="null_carrent_location">まだ現在地の取得ができていません。\n数秒後に再度お試しください。</string>
     <string name="ok">OK</string>
     <string name="title_gps_disabled">GPS設定</string>
     <string name="message_gps_disabled">GPSが起動していないため、現在地を取得できません。GPS設定画面を開かれる場合はOKボタンを押してください。
@@ -104,4 +103,22 @@
     <string name="title_select_address">住所を選択</string>
     <string name="search_label">地図上で地名検索</string>
     <string name="search_hint">地名を入力</string>
+    <string name="title_set_schedule">スケジュールに設定</string>
+    <string name="cannot_get_schedule">計画停電が判っている日付を指定してください</string>
+    <string name="plan_teiden">計画停電</string>
+    <string name="please_select_group">まずグループを選択してください</string>
+    <string name="description_regist_calendar">指定された日付の予定をカレンダーに登録します</string>
+    <string name="toast_regist_calendar">カレンダーに登録しました。</string>
+    <string name="preferences">設定</string>
+    <string name="category_group">グループ設定</string>
+    <string name="title_default_group">既定グループ</string>
+    <string name="regist_calendar">カレンダー登録</string>
+    <string name="alarm">アラーム</string>
+    <string name="set_alarm">設定する(但し中止の場合なし)</string>
+    <string name="before_minutes">分前</string>
+    <string name="date">日付</string>
+    <string name="please_search">まず検索してください</string>
+    <string name="teiden">停電</string>
+    <string name="category_alarm">アラーム設定</string>
+    <string name="title_default_alarm_time">既定のアラーム時間</string>
 </resources>
